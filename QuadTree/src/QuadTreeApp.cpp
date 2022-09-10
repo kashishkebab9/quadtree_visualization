@@ -38,6 +38,8 @@ class QuadTreeApp : public App {
     void drawNeighbors(QuadtreeNode* node);
     void drawStartNode(QuadtreeNode* iter);
     void drawEndNode(QuadtreeNode* iter);
+    QuadtreeNode* GetStartNode(QuadtreeNode* iter);
+    QuadtreeNode* GetEndNode(QuadtreeNode* iter);
     
 };
 
@@ -62,13 +64,14 @@ void QuadTreeApp::mouseDown( MouseEvent event )
    if (event.isShiftDown() ) {
        this->start_x = getMousePos().x - getWindowPosX();
        this->start_y = getMousePos().y -  getWindowPosY();
-       this->start_selected = true;
+       qt->start_selected = true;
+      
    }
     
    if (event.isControlDown() ) {
        this->end_x = getMousePos().x - getWindowPosX();
        this->end_y = getMousePos().y -  getWindowPosY();
-       this->end_selected = true;
+       qt->goal_selected = true;
    }
     
     if (event.isAltDown()) {
@@ -131,36 +134,50 @@ void QuadTreeApp::draw()
     }
     
     // Draw start/end point
-    if (this->start_selected) {
+    if (qt->start_selected) {
         vec2 position(this->start_x, this->start_y);
         gl::pushModelMatrix();
         gl::color(Color(0, 1, 0));
         gl::drawSolidCircle(position, 4);
         gl::popModelMatrix();
-        QuadtreeNode* start = root;
-        std::cout << start->direction_from_parent << std::endl;
-        drawStartNode(start);
+        qt->start_node = root;
+        qt->start_node = GetStartNode(qt->start_node);
+        drawStartNode(qt->start_node);
     }
     
-    if (this->end_selected) {
+    if (qt->goal_selected) {
         vec2 position(this->end_x, this->end_y);
         gl::pushModelMatrix();
         gl::color(Color(1, 0, 0));
         gl::drawSolidCircle(position, 4);
         gl::popModelMatrix();
-        QuadtreeNode* end = root;
-        drawEndNode(end);
+        qt->goal_node = root;
+        qt->goal_node = GetEndNode(qt->goal_node);
+        drawEndNode(qt->goal_node);
     }
     
-    if(this->left_selected) {
-        vec2 position(this->selected_x, this->selected_y);
-        gl::pushModelMatrix();
-        gl::color(Color(0, 0, 1));
-        gl::drawSolidCircle(position, 4);
-        gl::popModelMatrix();
-        iter = root;
-        drawNeighbors(iter);
-        
+
+    if (qt->goal_selected && qt->start_selected) {
+        QuadtreeNode* iter = qt->AStar();
+            
+            gl::color(Color(0, 0, 0));
+            gl::lineWidth(7);
+            gl::drawLine(vec2(end_x, end_y), vec2(iter->box.position.x, iter->box.position.y));
+            
+           do {
+               if(iter->astar_parent != NULL && iter != NULL) {
+                gl::color(Color(0, 0, 0));
+                gl::lineWidth(20);
+                gl::drawLine(vec2(iter->box.position.x, iter->box.position.y), vec2(iter->astar_parent->box.position.x, iter->astar_parent->box.position.y));
+                iter = iter->astar_parent;
+               }
+           } while(iter->astar_parent != qt->start_node);
+            
+            if(iter->astar_parent != NULL) {
+                gl::color(Color(0, 0, 0));
+                gl::lineWidth(20);
+                gl::drawLine(vec2(iter->box.position.x, iter->box.position.y), vec2(start_x, start_y));
+            }
     }
     
 }
@@ -209,62 +226,34 @@ void QuadTreeApp::drawNeighbors(QuadtreeNode* iter) {
             } else {
                 iter = iter->sw;
             }
-            
         }
     }
     
-    QuadtreeNode* west_neighbor = qt->WalkWest(iter);
-    std::vector<QuadtreeNode*> west_neighbors = qt->SmallerNodes(west_neighbor, Quadtree::WEST);
     
-    QuadtreeNode* north_neighbor = qt->WalkNorth(iter);
-    std::vector<QuadtreeNode*> north_neighbors = qt->SmallerNodes(north_neighbor, Quadtree::NORTH);
+    std::vector<QuadtreeNode*> all_neighbors = qt->GetAllNeighbors(iter);
     
-    QuadtreeNode* south_neighbor = qt->WalkSouth(iter);
-    std::vector<QuadtreeNode*> south_neighbors = qt->SmallerNodes(south_neighbor, Quadtree::SOUTH);
-    
-    QuadtreeNode* east_neighbor = qt->WalkEast(iter);
-    std::vector<QuadtreeNode*> east_neighbors = qt->SmallerNodes(east_neighbor, Quadtree::EAST);
-    
-    std::vector<QuadtreeNode*> north_east_neighbors;
-    north_east_neighbors = qt->WalkNorthEast(iter, north_neighbors, east_neighbors);
-    
-    std::vector<QuadtreeNode*> south_east_neighbors;
-    south_east_neighbors = qt->WalkSouthEast(iter, south_neighbors, east_neighbors);
-    
-    std::vector<QuadtreeNode*> north_west_neighbors;
-    north_west_neighbors = qt->WalkNorthWest(iter, north_neighbors, west_neighbors);
-    
-    std::vector<QuadtreeNode*> south_west_neighbors;
-    south_west_neighbors = qt->WalkSouthWest(iter, south_neighbors, west_neighbors);
-    
-    std::vector<QuadtreeNode*> all_neighbors;
-    all_neighbors.insert(all_neighbors.begin(), north_neighbors.begin(), north_neighbors.end());
-    all_neighbors.insert(all_neighbors.end(), north_east_neighbors.begin(), north_east_neighbors.end());
-    all_neighbors.insert(all_neighbors.end(), east_neighbors.begin(), east_neighbors.end());
-    all_neighbors.insert(all_neighbors.end(), south_east_neighbors.begin(), south_east_neighbors.end());
-    all_neighbors.insert(all_neighbors.end(), south_neighbors.begin(), south_neighbors.end());
-    all_neighbors.insert(all_neighbors.end(), south_west_neighbors.begin(), south_west_neighbors.end());
-    all_neighbors.insert(all_neighbors.end(), west_neighbors.begin(), west_neighbors.end());
-    all_neighbors.insert(all_neighbors.end(), north_west_neighbors.begin(), north_west_neighbors.end());
-    
+
     for (auto node: all_neighbors) {
         if (node != NULL) {
             if(!node->CheckIfObstacle()) {
+                
+                
                 gl::pushModelMatrix();
                 gl::color(Color(0, 0, 1));
                 cinder::Rectf rect(node->box.position.x - node->box.width/2, node->box.position.y - node->box.height/2, node->box.position.x + node->box.width/2, node->box.position.y + node->box.height/2);
                 gl::drawStrokedRect(rect, 1);
                 gl::popModelMatrix();
                 
+                
+                
             }
         }
-        
     }
     
 }
 
-void QuadTreeApp::drawStartNode(QuadtreeNode* iter) {
-    //we need to first find the node we have our start point in:
+QuadtreeNode* QuadTreeApp::GetStartNode(QuadtreeNode* iter) {
+    
     if(iter->subdivided) {
         
         while (iter->subdivided) {
@@ -282,9 +271,14 @@ void QuadTreeApp::drawStartNode(QuadtreeNode* iter) {
                 }
             }
         }
-    } else {
-        return;
     }
+    
+    return iter;
+    
+}
+
+void QuadTreeApp::drawStartNode(QuadtreeNode* iter) {
+    //we need to first find the node we have our start point in:
     
     //now iter is a leaf node
     gl::pushModelMatrix();
@@ -295,7 +289,8 @@ void QuadTreeApp::drawStartNode(QuadtreeNode* iter) {
    
 }
 
-void QuadTreeApp::drawEndNode(QuadtreeNode* iter) {
+QuadtreeNode* QuadTreeApp::GetEndNode(QuadtreeNode* iter) {
+    
     //we need to first find the node we have our start point in:
     if(iter->subdivided) {
         
@@ -314,9 +309,11 @@ void QuadTreeApp::drawEndNode(QuadtreeNode* iter) {
                 }
             }
         }
-    } else {
-        return;
     }
+    return iter;
+}
+
+void QuadTreeApp::drawEndNode(QuadtreeNode* iter) {
     
     //now iter is a leaf node
     gl::pushModelMatrix();
