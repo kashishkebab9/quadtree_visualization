@@ -4,11 +4,14 @@ I took the implementation of the quadtree I wrote in this repo: https://github.c
 and I attempted to visualize it using cinder on mac os.
 
 This was the result:
+https://user-images.githubusercontent.com/8800389/229629404-32878642-78a2-4f5e-9276-ada397ffbc65.mov
 
-https://user-images.githubusercontent.com/8800389/189465128-6b8945fa-50d9-43b0-863e-894c275e6dfe.mov
 
 # Installation
-In order to install and run, Cinder and Xcode must be installed on your machine.
+In order to install and run, Cinder and Xcode m
+
+
+ust be installed on your machine.
 
 Cinder: https://libcinder.org/docs/guides/mac-setup/index.html
 
